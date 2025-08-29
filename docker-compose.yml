@@ -1,9 +1,69 @@
-# 
-# docker-compose.yml — определяет сервисы для разработки и тестирования.
+version: '3.8'
 
-Что нужно сделать:
-  - Настроить сервисы для:
-      - PostgreSQL (или MySQL) с начальной базой.
-      - Приложения Spring Boot (если нужно).
-  - Открыть нужные порты (например, 5432, 8080).
-  - Настроить volume для хранения данных БД.
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: bankcards-postgres
+    environment:
+      POSTGRES_DB: bankcards
+      POSTGRES_USER: ${USER_LOGIN:-bankuser}
+      POSTGRES_PASSWORD: ${USER_PASSWORD:-bankpass123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - bankcards-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${USER_LOGIN:-bankuser} -d bankcards"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  bankcards-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bankcards-app
+    env_file:
+      - .env
+    environment:
+      USER_LOGIN: ${USER_LOGIN:-bankuser}
+      USER_PASSWORD: ${USER_PASSWORD:-bankpass123}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/bankcards
+      SPRING_LIQUIBASE_CHANGE_LOG: "classpath:/db/changelog/db.changelog-master.yaml"
+      
+      TOKEN_SECRET_KEY: ${TOKEN_SECRET_KEY:-your-secret-key-here-change-in-production}
+      ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-900000}
+      REFRESH_TOKEN_TTL: ${REFRESH_TOKEN_TTL:-86400000}
+      
+      ENCRYPTION_PASSWORD: ${ENCRYPTION_PASSWORD:-your-encryption-password}
+      ENCRYPTION_SALT: ${ENCRYPTION_SALT:-your-encryption-salt}
+      
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      
+      JAVA_OPTS: -Xms512m -Xmx1024m -XX:+UseG1GC -XX:+UseContainerSupport
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bankcards-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  bankcards-network:
+    driver: bridge

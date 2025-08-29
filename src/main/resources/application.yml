@@ -1,8 +1,35 @@
-#
-# application.yml — главный конфигурационный файл Spring Boot.
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/bankcards
+    username: ${USER_LOGIN}
+    password: ${USER_PASSWORD}
 
-Что нужно сделать:
-  - Указать настройки подключения к базе данных.
-  - Указать порт приложения.
-  - Настроить параметры безопасности и JWT.
-  - Включить Swagger UI.
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: 8080
+
+token:
+  signing:
+    key: ${TOKEN_SECRET_KEY}
+    expirationInMs: ${ACCESS_TOKEN_TTL}
+
+refreshToken:
+  expirationInMs: ${REFRESH_TOKEN_TTL}
+
+logging:
+  level:
+    com:
+      example:
+        bankcards: DEBUG
+
+encryption:
+  password: ${ENCRYPTION_PASSWORD}
+  salt: ${ENCRYPTION_SALT}
